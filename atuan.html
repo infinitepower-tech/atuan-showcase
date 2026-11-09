@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
+<head><script>try{localStorage.setItem('atuan-guide-seen-v1','1')}catch(e){}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="跟着同一只小熊猫，体验指定图片预览、高清场景、完整原版视频、阿团寻灯记与经典消消乐。全部素材和游戏内嵌，离线也能玩。">
@@ -1180,7 +1180,7 @@
   </section>
 </div>
 <div class="atuan-mouse" id="atuan-mouse" aria-hidden="true" hidden>
-  <svg viewBox="0 0 48 58"><path d="M5 3 39 34 24 36 18 53 10 49 16 34 5 3Z" fill="#fff" stroke="#102824" stroke-width="4" stroke-linejoin="round"/><circle cx="34" cy="14" r="8" fill="#f1b24a" stroke="#fff" stroke-width="3"/></svg>
+  <svg viewBox="0 0 28 35" width="28" height="35"><path d="M3 2v26.5l6.6-6.3 4.3 9.9 4.4-1.9-4.2-9.7h9.2z" fill="#111" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>
 </div>
 <div class="atuan-guide-bubble" id="atuan-guide-bubble" role="status" aria-live="polite" hidden></div>
 <a class="skip" href="#main">跳到正文</a>
@@ -7557,6 +7557,7 @@ function updateReading(){const max=document.documentElement.scrollHeight-innerHe
     }
   }
   function clearGuide() {
+    if (window.__ipStopFollow) window.__ipStopFollow();
     window.clearTimeout(guideTimer);
     window.clearTimeout(bubbleTimer);
     if (focusNode) focusNode.classList.remove('atuan-guide-focus');
@@ -7583,14 +7584,53 @@ function updateReading(){const max=document.documentElement.scrollHeight-innerHe
     document.body.appendChild(ring);
     window.setTimeout(function () { ring.remove(); }, 760);
   }
-  function moveMouse(x,y) {
-    mouse.hidden = false;
-    var from = 'translate3d(' + mousePosition.x + 'px,' + mousePosition.y + 'px,0)';
-    var to = 'translate3d(' + x + 'px,' + y + 'px,0)';
-    mouse.style.setProperty('--atuan-mouse-position', to);
-    var animation = mouse.animate([{transform:from},{transform:to}], {duration:760,easing:'cubic-bezier(.2,.8,.2,1)',fill:'forwards'});
-    mousePosition = {x:x,y:y};
-    return animation.finished.catch(function () {});
+  /* ===== INFINITE POWER 修正版：鼠标指引（替换原 moveMouse / guideTo） =====
+     1) 等页面滚动停稳后再取目标位置，避免指到半路；
+     2) 光标从目标附近淡入、短距离滑到目标中心，不再从上一步位置横穿全屏；
+     3) 停留期间跟随目标（用户滚动或布局变化时不脱位）；
+     4) 光标改为标准箭头，点击涟漪与箭头尖端对齐。 */
+  var IP_TIP_X = 3, IP_TIP_Y = 2;           /* 箭头尖端在 svg 中的位置（px） */
+  var ipFollow = 0;
+  function ipStopFollow() { if (ipFollow) cancelAnimationFrame(ipFollow); ipFollow = 0; }
+  window.__ipStopFollow = ipStopFollow;
+  function ipSetMouse(x, y, animate) {
+    mouse.style.transition = animate ? 'transform 620ms cubic-bezier(.22,.8,.24,1), opacity 220ms ease' : 'opacity 220ms ease';
+    mouse.style.transform = 'translate3d(' + (x - IP_TIP_X) + 'px,' + (y - IP_TIP_Y) + 'px,0)';
+    mousePosition = {x:x, y:y};
+  }
+  function ipWaitStable(node, maxMs) {
+    return new Promise(function (resolve) {
+      var last = null, stable = 0, t0 = performance.now();
+      (function tick() {
+        var r = node.getBoundingClientRect();
+        if (last && Math.abs(r.top - last.top) < .5 && Math.abs(r.left - last.left) < .5) stable++; else stable = 0;
+        last = r;
+        if (stable >= 5 || performance.now() - t0 > maxMs) resolve(); else requestAnimationFrame(tick);
+      })();
+    });
+  }
+  function ipPoint(node) {
+    var r = node.getBoundingClientRect();
+    var x = r.left + Math.min(r.width * .5, r.width - 12);
+    var y = r.top + Math.min(r.height * .55, r.height - 8);
+    return { r: r, x: Math.max(10, Math.min(window.innerWidth - 30, x)), y: Math.max(10, Math.min(window.innerHeight - 40, y)) };
+  }
+  function moveMouse(x, y) {
+    var fresh = mouse.hidden;
+    if (fresh) {
+      /* 从目标右下方近处出现，再滑过去 */
+      mouse.style.opacity = '0';
+      mouse.hidden = false;
+      ipSetMouse(Math.min(window.innerWidth - 30, x + 70), Math.min(window.innerHeight - 40, y + 80), false);
+      void mouse.offsetWidth;
+      mouse.style.opacity = '1';
+    }
+    return new Promise(function (resolve) {
+      requestAnimationFrame(function () {
+        ipSetMouse(x, y, true);
+        setTimeout(resolve, 640);
+      });
+    });
   }
   function guideTo(entry, options) {
     options = options || {};
@@ -7598,42 +7638,51 @@ function updateReading(){const max=document.documentElement.scrollHeight-innerHe
     prepare(entry);
     window.clearTimeout(guideTimer);
     window.clearTimeout(bubbleTimer);
+    ipStopFollow();
     return new Promise(function (resolve) {
       window.setTimeout(function () {
         var node = document.querySelector(entry.selector);
-        if (!node) {
-          if (typeof toast === 'function') toast('这个功能暂时没有加载出来，请稍后再试。');
-          resolve(false);
-          return;
-        }
+        if (!node) { resolve(false); return; }
         if (focusNode) focusNode.classList.remove('atuan-guide-focus');
-        node.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
-        window.setTimeout(function () {
-          var rect = node.getBoundingClientRect();
-          var x = Math.max(8, Math.min(window.innerWidth - 48, rect.left + Math.min(rect.width * .7, rect.width - 8)));
-          var y = Math.max(8, Math.min(window.innerHeight - 58, rect.top + Math.min(rect.height * .45, rect.height - 8)));
+        mouse.hidden = true;
+        bubble.hidden = true;
+        node.scrollIntoView({behavior:'smooth', block:'center', inline:'nearest'});
+        ipWaitStable(node, 1600).then(function () {
+          var p = ipPoint(node);
           focusNode = node;
           node.classList.add('atuan-guide-focus');
-          placeBubble(rect, entry);
-          moveMouse(x,y).then(function () {
+          placeBubble(p.r, entry);
+          moveMouse(p.x, p.y).then(function () {
+            if (focusNode !== node) return;
             mouse.classList.remove('is-clicking');
             void mouse.offsetWidth;
             mouse.classList.add('is-clicking');
-            ripple(x + 9, y + 8);
+            ripple(p.x, p.y);
+            /* 停留期间跟随目标 */
+            (function follow() {
+              if (focusNode !== node || mouse.hidden) { ipFollow = 0; return; }
+              var q = ipPoint(node);
+              if (Math.abs(q.x - mousePosition.x) > .5 || Math.abs(q.y - mousePosition.y) > .5) {
+                ipSetMouse(q.x, q.y, false);
+                placeBubble(q.r, entry);
+              }
+              ipFollow = requestAnimationFrame(follow);
+            })();
           });
           var stay = options.stay || 3200;
           guideTimer = window.setTimeout(function () {
+            ipStopFollow();
             node.classList.remove('atuan-guide-focus');
             if (focusNode === node) focusNode = null;
             mouse.hidden = true;
             bubble.hidden = true;
             resolve(true);
-          }, stay);
-        }, options.scrollWait || 650);
+          }, stay + 700);
+        });
       }, 80);
     });
   }
-  async function runTour() {
+  async function runTour(startAt) {
     var token = ++tourToken;
     clearGuide();
     var steps = [
@@ -7645,11 +7694,13 @@ function updateReading(){const max=document.documentElement.scrollHeight-innerHe
       catalog.find(function (item) { return item.id === 'match'; })
     ];
     tourOpen.textContent = '■ 停止引导演示';
-    for (var i=0; i<steps.length; i++) {
+    for (var i=(startAt||0); i<steps.length; i++) {
       if (token !== tourToken) break;
+      window.__atuanTourStep = i;
       await guideTo(steps[i], {stay:2300,scrollWait:620});
     }
     if (token === tourToken) {
+      window.__atuanTourDone = true;
       tourToken++;
       if (typeof toast === 'function') toast('引导演示完成。随时按 Ctrl+K 搜索功能。');
     }
@@ -7706,15 +7757,182 @@ function updateReading(){const max=document.documentElement.scrollHeight-innerHe
   } catch (_) {}
 })();
 </script>
-
-<style id="ip-home-style">#ip-home{position:fixed;left:14px;bottom:14px;z-index:2147483000;display:none;align-items:center;gap:6px;padding:10px 16px;border-radius:999px;background:#0F2443;color:#EABF61;font:800 14px/1 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;text-decoration:none;box-shadow:0 8px 22px rgba(15,36,67,.35);border:2px solid #EABF61}</style>
+<style id="ip-coach-style">
+#ip-home{position:fixed;left:14px;bottom:14px;z-index:2147480000;display:none;align-items:center;gap:6px;padding:10px 16px;border-radius:999px;background:#182A46;color:#E8C77B;font:800 14px/1 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;text-decoration:none;box-shadow:0 8px 22px rgba(24,42,70,.35);border:2px solid #E8C77B}
+.atuan-mouse{width:28px!important;height:35px!important;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))!important}
+.atuan-mouse.is-clicking{animation:none!important}
+/* 聚光框 */
+#ipc-ring{position:fixed;left:0;top:0;z-index:2147481000;pointer-events:none;border:4px solid #E8C77B;border-radius:16px;box-shadow:0 0 0 200vmax rgba(12,22,38,.5);transition:left .35s ease,top .35s ease,width .35s ease,height .35s ease,box-shadow .35s ease;display:none}
+#ipc-ring.do{animation:ipc-pulse 1.3s ease-in-out infinite}
+#ipc-ring.see{box-shadow:0 0 0 200vmax rgba(12,22,38,.28);border-color:#7FE0A8}
+@keyframes ipc-pulse{0%,100%{outline:0 solid rgba(232,199,123,.55);outline-offset:0}50%{outline:10px solid rgba(232,199,123,0);outline-offset:6px}}
+/* 指引光标 / 手指 */
+#ipc-hand{position:fixed;left:0;top:0;z-index:2147481500;pointer-events:none;display:none;width:34px;height:42px}
+#ipc-hand svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 4px 6px rgba(0,0,0,.4));animation:ipc-tap 1.3s ease-in-out infinite;transform-origin:0 0}
+#ipc-hand.touch{width:46px;height:52px}
+@keyframes ipc-tap{0%,100%{transform:translate(14px,16px)}45%{transform:translate(0,0)}55%{transform:translate(0,0) scale(.86)}65%{transform:translate(0,0) scale(1)}}
+#ipc-dot{position:fixed;z-index:2147481400;pointer-events:none;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:4px solid #E8C77B;display:none;animation:ipc-ripple 1.3s ease-out infinite}
+@keyframes ipc-ripple{0%,40%{transform:scale(.3);opacity:0}55%{opacity:1}100%{transform:scale(1.5);opacity:0}}
+/* 底部说明卡 */
+#ipc-card{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:2147482000;width:min(460px,calc(100vw - 20px));background:#182A46;color:#fff;border:2px solid #E8C77B;border-radius:20px;padding:14px 16px 14px;box-shadow:0 18px 44px rgba(0,0,0,.4);font:500 15px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;display:none}
+#ipc-card .k{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#E8C77B;letter-spacing:.5px}
+#ipc-card .dots{display:flex;gap:4px;margin-left:auto}
+#ipc-card .dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.22)}
+#ipc-card .dots i.on{background:#E8C77B;width:16px;border-radius:4px}
+#ipc-card .dots i.done{background:rgba(232,199,123,.6)}
+#ipc-card h4{margin:6px 0 2px;font-size:18px;font-weight:900;color:#fff;line-height:1.35}
+#ipc-card p{margin:0;color:#D5DDEA;font-size:14.5px}
+#ipc-card p b{color:#E8C77B}
+#ipc-card .ok{color:#7FE0A8;font-weight:900}
+#ipc-card .acts{display:flex;gap:8px;margin-top:12px;align-items:center}
+#ipc-card button{border:0;cursor:pointer;font:800 14px/1 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;border-radius:999px;padding:10px 16px;min-height:40px}
+#ipc-card .pri{background:#E8C77B;color:#182A46;margin-left:auto}
+#ipc-card .sec{background:rgba(255,255,255,.1);color:#D5DDEA}
+#ipc-card .lnk{background:none;color:#9AA8BE;padding:10px 6px}
+html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home{display:none!important}
+@media (prefers-reduced-motion:reduce){#ipc-ring.do,#ipc-hand svg,#ipc-dot{animation:none!important}}
+</style>
 <a id="ip-home" href="index.html">⌂ 返回首页</a>
-<script id="ip-autotour">(function(){
+<div id="ipc-ring"></div><div id="ipc-dot"></div><div id="ipc-hand"></div>
+<div id="ipc-card" role="dialog" aria-live="polite"></div>
+<script id="ip-coach">(function(){
+  /* 一步一步的互动引导：框出目标 → 光标/手指提示 → 用户亲手点 → 展示效果 → 点「下一步」 */
   var inFrame = false; try { inFrame = window.top !== window; } catch (e) { inFrame = true; }
   if (!inFrame) document.getElementById('ip-home').style.display = 'inline-flex';
-  function go(){ try { localStorage.setItem('atuan-guide-seen-v1','1'); } catch (e) {}
-    if (window.AtuanGuide && window.AtuanGuide.runTour) window.AtuanGuide.runTour(); }
-  window.addEventListener('load', function(){ setTimeout(go, 1300); });
-  window.addEventListener('message', function(e){ if (e.data && e.data.type === 'ip-autotour') go(); });
+  var touch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
+  var ring = document.getElementById('ipc-ring'), hand = document.getElementById('ipc-hand'), dot = document.getElementById('ipc-dot'), card = document.getElementById('ipc-card');
+  hand.className = touch ? 'touch' : '';
+  hand.innerHTML = touch
+    ? '<svg viewBox="0 0 46 52"><path d="M14 4.5c2.6 0 4.5 2 4.5 4.6v14.2l1.6-.5c2.3-.6 4.5.9 4.9 3.1l.1.6 1.3-.3c2.3-.4 4.4 1 4.8 3.2l.1.5 1.1-.2c2.4-.3 4.6 1.4 4.8 3.8l.6 7.2c.5 6-3.6 11.4-9.5 12.5l-3 .5c-4.5.8-9-1.2-11.5-5L3.6 35.4c-1.3-2-.8-4.7 1.2-6 1.8-1.2 4.2-.9 5.7.7l-.9-.9V9.1C9.5 6.5 11.5 4.5 14 4.5z" fill="#fff" stroke="#182A46" stroke-width="2.4" stroke-linejoin="round"/></svg>'
+    : '<svg viewBox="0 0 28 35"><path d="M3 2v26.5l6.6-6.3 4.3 9.9 4.4-1.9-4.2-9.7h9.2z" fill="#111" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>';
+  var HX = touch ? 14 : 3, HY = touch ? 5 : 2;   /* 指尖/箭头尖在图标中的位置 */
+
+  function q(s){ return document.querySelector(s); }
+  function vis(el){ if (!el) return false; var r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2; }
+  var STEPS = [
+    {sel:'.chip[data-add*="晨雾"]', t:'先选一个画面方向', tip:'点一下 <b>「增加晨雾」</b>，描述里会自动加上这句话。', eff:'#prompt', ok:'描述里多了「晨雾穿过竹叶」。下一步让它出图。', wait:250},
+    {sel:'#generate', t:'生成图片预览', tip:'点 <b>「生成预览」</b>，看看图片怎么变。', eff:'#preview', ok:'看，画面换成了「晨雾竹林」版本！', wait:1100},
+    {sel:'.scene-tab[data-scene="night"]', t:'换一个场景', tip:'点 <b>「夜晚灯会」</b>：主角不变，只换世界。', eff:'#scene-image', ok:'同一只阿团，从白天竹林来到了夜晚灯会。', wait:700},
+    {sel:'#compare-open', t:'前后对比', tip:'点 <b>「前后对比」</b>。', eff:'#compare', ok:'<b>左右拖动</b>中间的滑杆，看原图和新场景的差别。', wait:500},
+    {sel:'#video-restart', t:'看一段原版视频', tip:'点 <b>「从头播放」</b>。', eff:'#panda-video', ok:'视频正在播放，可以全屏、调音量。', wait:500},
+    {sel:'#atuan-expand', t:'进 3D 小游戏闯关', tip:'点 <b>「放大舞台」</b>，开始玩「阿团寻灯记」。', eff:'#atuan-stage', ok:'点游戏里的 <b>「开始闯关」</b>，用方向键（手机用左下摇杆）让阿团跑、跳，收集三盏灯！', wait:700,
+     before:function(){ var t = q('#atuan-tab-lantern'); if (t && t.getAttribute('aria-selected') !== 'true') t.click(); }},
+    {sel:'#atuan-tab-match', t:'再来一局消消乐', tip:'点 <b>「经典消消乐」</b>。', eff:'#atuan-panel-match', ok:'交换相邻的棋子，三个连成一线就能消除。', wait:700,
+     before:function(){ var c = q('#atuan-close'); if (c && !c.hidden) c.click(); }, delay:1300}
+  ];
+  var cur = -1, phase = '', target = null, raf = 0, active = false, clickH = null;
+
+  function dotsHTML(){ var h = ''; for (var i = 0; i < STEPS.length; i++) h += '<i class="' + (i === cur ? 'on' : (i < cur ? 'done' : '')) + '"></i>'; return h; }
+  function setCard(html){ card.innerHTML = html; card.style.display = 'block'; }
+  /* 舞台放大时原页面会把舞台外的元素设为 inert，引导卡片需跟进舞台内部 */
+  function host(){
+    var st = q('#atuan-stage');
+    var h = (st && st.getAttribute('data-expanded') === 'true') ? st : document.body;
+    [ring, dot, hand, card].forEach(function(n){ if (n.parentNode !== h) h.appendChild(n); if (n.inert) n.inert = false; if (n.hasAttribute('inert')) n.removeAttribute('inert'); });
+  }
+  function place(){
+    raf = requestAnimationFrame(place);
+    host();
+    if (!target || !vis(target)) { ring.style.display = 'none'; hand.style.display = dot.style.display = 'none'; return; }
+    var r = target.getBoundingClientRect(), pad = 8;
+    ring.style.display = 'block';
+    ring.style.left = (r.left - pad) + 'px'; ring.style.top = (r.top - pad) + 'px';
+    ring.style.width = (r.width + pad * 2) + 'px'; ring.style.height = (r.height + pad * 2) + 'px';
+    if (phase === 'do') {
+      var x = r.left + Math.min(r.width * .5, r.width - 14), y = r.top + Math.min(r.height * .6, r.height - 8);
+      hand.style.display = dot.style.display = 'block';
+      hand.style.transform = 'translate3d(' + (x - HX) + 'px,' + (y - HY) + 'px,0)';
+      dot.style.left = x + 'px'; dot.style.top = y + 'px';
+    } else { hand.style.display = dot.style.display = 'none'; }
+  }
+  function scrollToEl(el, ratio){
+    var r = el.getBoundingClientRect(), vh = window.innerHeight;
+    var y = window.pageYOffset + r.top + r.height / 2 - vh * ratio;
+    if (r.height > vh * .55) y = window.pageYOffset + r.top - vh * .1;
+    window.scrollTo({top: Math.max(0, y), behavior: 'smooth'});
+  }
+  function go(i){
+    cur = i;
+    if (i >= STEPS.length) return finish();
+    var s = STEPS[i];
+    try { if (s.before) s.before(); } catch (e) {}
+    setTimeout(function(){
+      var el = q(s.sel);
+      if (!vis(el)) return go(i + 1);
+      target = el; phase = 'do';
+      ring.className = 'do';
+      scrollToEl(el, touch ? .32 : .4);
+      setCard('<div class="k">跟我一步步玩 · 第 ' + (i + 1) + ' / ' + STEPS.length + ' 步<span class="dots">' + dotsHTML() + '</span></div>' +
+        '<h4>' + s.t + '</h4><p>' + s.tip + '</p>' +
+        '<div class="acts"><button class="lnk" data-a="end">退出引导</button><button class="sec" data-a="skip" style="margin-left:auto">跳过这步</button></div>');
+    }, s.delay || (s.before ? 450 : 60));
+  }
+  function seeEffect(){
+    var s = STEPS[cur];
+    phase = 'see';
+    ring.className = 'see';
+    setTimeout(function(){
+      var eff = q(s.eff);
+      if (vis(eff)) { target = eff; scrollToEl(eff, touch ? .38 : .45); }
+      var last = cur === STEPS.length - 1;
+      setCard('<div class="k">第 ' + (cur + 1) + ' / ' + STEPS.length + ' 步<span class="dots">' + dotsHTML() + '</span></div>' +
+        '<h4><span class="ok">✓ 做到了！</span></h4><p>' + s.ok + '</p>' +
+        '<div class="acts"><button class="lnk" data-a="end">退出引导</button><button class="pri" data-a="next">' + (last ? '完成 🎉' : '下一步 →') + '</button></div>');
+    }, s.wait || 400);
+  }
+  function onClick(e){
+    if (!active || phase !== 'do' || !target) return;
+    if (card.contains(e.target)) return;
+    if (target === e.target || target.contains(e.target)) seeEffect();
+  }
+  card.addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    var a = b.getAttribute('data-a');
+    if (a === 'next' || a === 'skip') go(cur + 1);
+    else if (a === 'end') stop();
+  });
+  function finish(){
+    stop();
+    host();
+    try { sessionStorage.setItem('ip-coach-done', '1'); } catch (e) {}
+    setCard('<h4>🎉 引导完成</h4><p>图片、场景、视频和小游戏你都试过了，接下来随便玩吧。想再看一遍，点右上角「跟我一步步玩」。</p><div class="acts"><button class="pri" data-a="close">好的</button></div>');
+    card.querySelector('[data-a="close"]').onclick = function(){ card.style.display = 'none'; };
+  }
+  function stop(){
+    document.documentElement.classList.remove('ipc-on');
+    active = false; phase = ''; target = null;
+    cancelAnimationFrame(raf); raf = 0;
+    ring.style.display = hand.style.display = dot.style.display = card.style.display = 'none';
+    try { sessionStorage.setItem('ip-coach-done', '1'); } catch (e) {}
+  }
+  function start(){
+    if (window.AtuanGuide) { var b = q('.atuan-tour-open'); if (b && b.textContent.indexOf('停止') >= 0) b.click(); }
+    active = true;
+    document.documentElement.classList.add('ipc-on');
+    cancelAnimationFrame(raf); raf = requestAnimationFrame(place);
+    go(0);
+  }
+  window.IPCoach = {start:start, stop:stop};
+  document.addEventListener('click', onClick, true);
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && active) stop(); });
+
+  /* 原「鼠标引导演示」按钮改为启动互动引导 */
+  function hookLauncher(){
+    var b = q('.atuan-tour-open');
+    if (b) b.textContent = '▶ 跟我一步步玩';
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest && e.target.closest('.atuan-tour-open');
+    if (!b) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    if (active) stop(); else start();
+  }, true);
+  function autoStart(){
+    hookLauncher();
+    var done = false; try { done = sessionStorage.getItem('ip-coach-done') === '1'; } catch (e) {}
+    if (!done && !active) start();
+  }
+  window.addEventListener('load', function(){ hookLauncher(); setTimeout(autoStart, 900); });
+  window.addEventListener('message', function(e){ if (e.data && e.data.type === 'ip-autotour') autoStart(); });
 })();</script>
 </body></html>
