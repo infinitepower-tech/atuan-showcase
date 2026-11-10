@@ -7900,6 +7900,11 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
 #ipc-card .fin-next b{display:block;color:#E8C77B;font-size:15.5px}
 #ipc-card .fin-next span{display:block;color:#C9D3E5;font-size:12.5px;line-height:1.45}
 #ipc-card .fin-next i{margin-left:auto;font-style:normal;font-size:20px;color:#E8C77B}
+html.ipc-on body{touch-action:none}
+html.ipc-on #compare,html.ipc-on .p3-grid{touch-action:none}
+html.ipc-on #panda-video{pointer-events:none}
+#ipc-welcome .w-card{overscroll-behavior:contain;touch-action:pan-y}
+#ipc-card{touch-action:none;overscroll-behavior:none}
 @media (prefers-reduced-motion:reduce){#ipc-ring.do,#ipc-hand svg,#ipc-dot{animation:none!important}}
 </style>
 <a id="ip-home" href="index.html">⌂ 返回首页</a>
@@ -7982,7 +7987,7 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
     if (mini) {
       var txt = phase === 'see' ? (s.mini || '做到了！') : s.t;
       if (s.game && phase === 'see') txt = game.sub === 'start' ? '点「开始闯关」' : game.sub === 'stick' ? (touch ? '用左下摇杆：右推跑、上推跳' : '方向键 ← → 跑，↑ 跳') : txt;
-      if (s.board && phase === 'see') txt = board.sub === 'swipe' ? '按住棋子滑动，凑三连' : '玩得开心！可以点 › 完成';
+      if (s.board && phase === 'see') txt = board.sub === 'swipe' ? '按住棋子滑动，凑三连' : (board.done ? '消除成功！🎉' : '再消一次就完成啦');
       card.innerHTML = '<span class="mt"><i>' + (phase === 'see' ? '✓ ' : '') + '第' + (cur + 1) + '章</i><span class="tx">' + txt + '</span></span>' +
         '<button type="button" class="sec" data-a="prev"' + (cur <= 0 ? ' disabled' : '') + ' aria-label="上一步">‹</button>' +
         '<button type="button" class="sec" data-a="next" aria-label="下一步">›</button>' +
@@ -7994,6 +7999,11 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
       var ok = s.ok || ('<b>' + s.mini + '</b>。点「收起」就不挡游戏了。');
       if (s.okIf && !s.okIf() && s.okAlt) ok = s.okAlt();
       if (s.__busy) { card.innerHTML = headHTML() + '<h4><span class="spin-s"></span>' + (s.busy || '处理中…') + '</h4><p>看图片区域，马上就好。</p>' + navHTML('<button type="button" class="pri" data-a="next">' + nextLabel() + '</button>'); card.style.display = 'block'; return; }
+      if (s.game && game.popped) {
+        card.innerHTML = headHTML() + '<h4><span class="ok">✓ 你已经会玩啦！</span></h4><p>阿团从一张图，变成了能跑能跳的游戏主角。最后一章是彩蛋：同一只阿团做成的<b>消消乐</b>。</p>' +
+          '<div class="acts"><button type="button" class="sec" data-a="min">继续玩游戏</button><button type="button" class="pri" data-a="next" style="margin-left:auto">下一章：消消乐 ›</button></div>';
+        card.style.display = 'block'; return;
+      }
       if (s.game) ok = '先点游戏里的 <b>「开始闯关」</b>，再' + (touch ? '按住<b>左下角摇杆</b>：右推奔跑、上推跳跃' : '用 <b>← →</b> 奔跑、<b>↑ / 空格</b> 跳跃') + '，收集三盏灯火跑到终点！';
       card.innerHTML = headHTML() + '<h4><span class="ok">✓ ' + s.t + '</span></h4><p>' + ok + '</p>' +
         navHTML('<button type="button" class="' + (s.play ? 'pri' : 'sec') + '" data-a="next" style="margin-left:auto">' + nextLabel() + '</button>');
@@ -8047,7 +8057,17 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
   function showHand(withDot){ hand.style.display = 'block'; hand.style.opacity = '1'; dot.style.display = withDot ? 'block' : 'none'; }
 
   /* ===== 游戏内子指引：开始闯关 → 摇杆/方向键 ===== */
-  var game = {sub:'', doc:null, used:false};
+  var game = {sub:'', doc:null, used:false, popped:false, timer:0};
+  /* 开始闯关后：玩约 6 秒（或 12 秒没动）就自动展开卡片，告诉用户下一章是消消乐 */
+  function gamePopLater(ms){
+    clearTimeout(game.timer);
+    var my = seq;
+    game.timer = setTimeout(function(){
+      var s = STEPS[cur];
+      if (my !== seq || !active || !s || !s.game || phase !== 'see' || game.popped) return;
+      game.popped = true; game.sub = 'done'; mini = false; render();
+    }, ms);
+  }
   function fdoc(){ var f = q('#atuan-frame'); try { return f && f.contentDocument; } catch (e) { return null; } }
   function irect(el){
     var f = q('#atuan-frame').getBoundingClientRect(), r = el.getBoundingClientRect();
@@ -8058,8 +8078,11 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
     var d = fdoc(); if (!d || game.doc === d) return;
     game.doc = d;
     var sb = d.getElementById('start-btn');
-    if (sb) sb.addEventListener('click', function(){ if (game.sub === 'start') { game.sub = 'stick'; render(); } }, true);
-    function used(){ if (game.sub === 'stick') { game.used = true; setTimeout(function(){ if (game.sub === 'stick') { game.sub = 'done'; render(); } }, 1600); } }
+    if (sb) sb.addEventListener('click', function(){ if (game.sub === 'start') { game.sub = 'stick'; render(); gamePopLater(12000); } }, true);
+    function used(){
+      if (!game.used && !game.popped) gamePopLater(6000);
+      if (game.sub === 'stick') { game.used = true; setTimeout(function(){ if (game.sub === 'stick') { game.sub = 'done'; render(); } }, 1600); }
+    }
     var js = d.getElementById('joystick');
     if (js) ['pointerdown','touchstart'].forEach(function(t){ js.addEventListener(t, used, {passive:true}); });
     d.addEventListener('keydown', function(e){ if (/Arrow|^[adwADW ]$/.test(e.key)) used(); }, true);
@@ -8067,8 +8090,9 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
   function gameStart(){
     gameBind();
     var d = fdoc(), sb = d && d.getElementById('start-btn');
-    game.used = false;
+    game.used = false; game.popped = false;
     game.sub = (sb && ivis(sb)) ? 'start' : 'stick';
+    if (game.sub === 'stick') gamePopLater(12000);
   }
   function gameTarget(){
     var d = fdoc(); if (!d) return null;
@@ -8114,7 +8138,7 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
     }
     if (s && s.board && phase === 'see') {
       var bf = target;
-      if (!bf || !vis(bf)) { hideAll(); return; }
+      if (!bf || !vis(bf) || board.sub !== 'swipe') { hideAll(); return; }
       var br = bf.getBoundingClientRect();
       if (!settle('b' + cur, br)) { hideAll(); return; }
       ring.className = 'game';
@@ -8125,7 +8149,7 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
         hand.className = (touch ? 'touch' : '') + ' swipe';
         hand.style.setProperty('--sw', Math.round(br.width / 6) + 'px');
         setHand(cx, cy); showHand(false);
-      } else { hand.style.opacity = '0'; dot.style.display = 'none'; bub.style.display = 'none'; }
+      } else { hideAll(); }
       return;
     }
     bub.style.display = 'none';
@@ -8191,7 +8215,7 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
     function show(){
       var eff = q(s.eff);
       if (vis(eff)) { target = eff; if (!s.play || s.board) scrollToEl(eff, s.board ? (touch ? .56 : .52) : (touch ? .36 : .45)); }
-      if (s.board) setTimeout(function(){ if (my === seq) { board.sub = 'swipe'; boardBind(); render(); } }, 650);
+      if (s.board) setTimeout(function(){ if (my === seq) { board.sub = 'swipe'; boardBind(); boardWatch(); render(); } }, 650);
     }
     if (s.instant) {
       /* 立刻把框移到图片上，生成完成后再出「做到了」 */
@@ -8203,7 +8227,22 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
     setTimeout(function(){ if (my !== seq) return; show(); render(); }, s.wait || 400);
   }
   /* 消消乐：框住整个棋盘 + 手指滑动示意，用户一动手就收起 */
-  var board = {sub:'', bound:null};
+  var board = {sub:'', bound:null, moves0:null, done:false, timer:0};
+  function movesLeft(){ var m = q('#panda-match-game .p3-moves-stat'); var n = m && /\d+/.exec(m.textContent); return n ? +n[0] : null; }
+  function boardWatch(){
+    board.moves0 = movesLeft(); board.done = false;
+    var my = seq;
+    (function chk(){
+      if (my !== seq || !active) return;
+      var m = movesLeft();
+      if (board.moves0 != null && m != null && board.moves0 - m >= 2 && !board.done) {
+        board.done = true; board.sub = 'done'; render();
+        setTimeout(function(){ if (my === seq && active) finish(true); }, 1400);   /* 消了两次：自动完成 */
+        return;
+      }
+      setTimeout(chk, 250);
+    })();
+  }
   function boardBind(){
     var g = q('#panda-match-game .p3-grid');
     if (!g || board.bound === g) return;
@@ -8229,12 +8268,12 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
     else if (a === 'close') { card.style.display = 'none'; }
     else if (a === 'nextmod') { gotoModule('#/is'); }
   });
-  function finish(){
+  function finish(auto){
     userExited = true;
     stop();
     host();
     card.classList.remove('mini', 'top', 'attn');
-    card.innerHTML = '<h4>🎉 一张图，变成了一个作品</h4>' +
+    card.innerHTML = (auto ? '<div class="k" style="color:#7FE0A8">✓ 消消乐也会玩了！全部 8 章完成</div>' : '') + '<h4>🎉 一张图，变成了一个作品</h4>' +
       '<div class="fin"><span>一句描述</span>→<span>加点个性</span>→<span>换个世界</span>→<span>动起来</span>→<span>变成游戏</span></div>' +
       '<p>这就是 AI 创作：<b>你出想法，AI 来实现。</b></p>' +
       '<button type="button" class="fin-next" data-a="nextmod"><div><b>下一站：AI 是什么？</b><span>刚才用到的「模型」到底是什么？用开电动车打个比方，一次分清。</span></div><i>›</i></button>' +
@@ -8272,13 +8311,14 @@ html.ipc-on,html.ipc-on body{overscroll-behavior:none}
     e.preventDefault(); gotoModule(a.getAttribute('data-ip-nav'));
   });
   /* ===== 引导中锁定页面滑动：只能点「下一步 / 退出」；目标、对比图、消消乐棋盘、游戏舞台照常操作 ===== */
-  function allowTouch(t){ return !!(t && t.closest && t.closest('#compare, .p3-grid, #ipc-card, #ipc-welcome, #atuan-stage[data-expanded="true"], textarea')); }
-  function lockMove(e){ if (!welcome.hidden && !(e.target && e.target.closest && e.target.closest('.w-card'))) { if (e.cancelable) e.preventDefault(); return; }
-    if (!active || mini) return; if (allowTouch(e.target)) return; if (e.cancelable) e.preventDefault(); }
+  /* 只有「对比图、消消乐棋盘、放大后的游戏舞台」可以拖动；步骤卡片、视频、文字框等一律不让页面跟着滑 */
+  function allowTouch(t){ return !!(t && t.closest && t.closest('#compare, .p3-grid, #atuan-stage[data-expanded="true"]')); }
+  function lockMove(e){ if (!welcome.hidden) { var wc = e.target && e.target.closest && e.target.closest('.w-card'); if (!wc || wc.scrollHeight <= wc.clientHeight + 2) { if (e.cancelable) e.preventDefault(); } return; }
+    if (!active) return; if (allowTouch(e.target)) return; if (e.cancelable) e.preventDefault(); }
   document.addEventListener('touchmove', lockMove, {passive:false});
   document.addEventListener('wheel', lockMove, {passive:false});
   document.addEventListener('keydown', function(e){
-    if (!active || mini) return;
+    if (!active) return;
     var t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     if ([' ', 'PageDown', 'PageUp', 'ArrowDown', 'ArrowUp', 'Home', 'End'].indexOf(e.key) >= 0 && !(t && t.closest && t.closest('#atuan-stage[data-expanded="true"], .p3-grid'))) e.preventDefault();
   }, true);
