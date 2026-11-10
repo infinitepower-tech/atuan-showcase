@@ -8352,6 +8352,11 @@ html.ipc-welcome-on .atuan-guide-launcher,html.ipc-welcome-on #ip-home{display:n
         if (done) return; done = true;
         ctls.forEach(function(x, j){ if (j !== k && x && x.abort) try { x.abort(); } catch (e) {} });
         useSrc(URL.createObjectURL(b.type ? b : new Blob([b], {type:'video/mp4'})));
+        /* 有的 App 内置浏览器不让播放 blob 视频：4 秒还没就绪或报错，就改用直接地址（刚下载过，走缓存） */
+        var fell = false;
+        function fall(){ if (fell || ready) return; fell = true; di = k; v.addEventListener('error', function(){ if (++di < SRCS.length) useSrc(SRCS[di]); }); useSrc(SRCS[k]); }
+        v.addEventListener('error', fall, {once:true});
+        setTimeout(fall, 4000);
       }, function(){ if (done) return; if (++fails >= SRCS.length) { done = true; direct(); } else { for (var j = 0; j < SRCS.length; j++) if (!ctls[j]) { attempt(j); break; } } });
     }
     attempt(0);
