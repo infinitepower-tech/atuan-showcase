@@ -839,7 +839,54 @@
 }
 </style>
 </head>
-<body>
+<body><div id="ip-splash" role="status" aria-live="polite">
+  <div class="ips-in">
+    <div class="ips-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="bg"/><circle cx="60" cy="60" r="52" class="fg" id="ips-arc"/></svg><span id="ips-pct">0%</span></div>
+    <b>正在准备小熊猫阿团的世界</b>
+    <small id="ips-tip">图片、视频和小游戏马上就好</small>
+  </div>
+</div>
+<style id="ip-splash-style">
+#ip-splash{position:fixed;top:0;left:0;right:0;bottom:0;z-index:2147483600;background:#182A46;display:flex;align-items:center;justify-content:center;transition:opacity .45s ease,visibility .45s;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+#ip-splash.done{opacity:0;visibility:hidden;pointer-events:none}
+#ip-splash .ips-in{display:flex;flex-direction:column;align-items:center;gap:10px;color:#fff;text-align:center;padding:0 24px}
+#ip-splash .ips-ring{position:relative;width:112px;height:112px;margin-bottom:8px}
+#ip-splash svg{width:100%;height:100%;transform:rotate(-90deg)}
+#ip-splash circle{fill:none;stroke-width:8;stroke-linecap:round}
+#ip-splash .bg{stroke:rgba(232,199,123,.18)}
+#ip-splash .fg{stroke:#E8C77B;stroke-dasharray:326.7;stroke-dashoffset:326.7;transition:stroke-dashoffset .3s ease}
+#ip-splash #ips-pct{position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#E8C77B}
+#ip-splash b{font-size:18px;font-weight:900}
+#ip-splash small{font-size:13.5px;color:#AFC0DA}
+html.ip-loading,html.ip-loading body{overflow:hidden}
+</style>
+<script id="ip-splash-script">(function(){
+  var PRE = ["assets/atuan/panda-6e9563f999.webp", "assets/atuan/preview-power-29f45a3b4c.webp", "assets/atuan/preview-mist-5414d42d94.webp", "assets/atuan/preview-puzzled-c27533df60.webp", "assets/atuan/bamboo-db322386b6.webp", "assets/atuan/night-3573f303a3.webp", "assets/atuan/snow-322217b571.webp", "assets/atuan/game-panda-aa18dd6b8f.webp", "assets/atuan/poster.jpg"];
+  var root = document.documentElement; root.classList.add('ip-loading');
+  var arc = document.getElementById('ips-arc'), pct = document.getElementById('ips-pct'), tip = document.getElementById('ips-tip');
+  var n = 0, total = PRE.length + 1, shown = 0, finished = false;
+  function set(v){ shown = Math.max(shown, v); arc.style.strokeDashoffset = 326.7 * (1 - shown); pct.textContent = Math.round(shown * 100) + '%'; }
+  function step(){ n++; set(n / total); }
+  var resolveReady; window.__ipReady = new Promise(function(r){ resolveReady = r; });
+  function done(){
+    if (finished) return; finished = true; set(1);
+    setTimeout(function(){
+      root.classList.remove('ip-loading');
+      document.getElementById('ip-splash').classList.add('done');
+      resolveReady();
+      try { parent.postMessage({type:'ip-atuan-ready'}, '*'); } catch (e) {}
+    }, 180);
+  }
+  function load(u){ return new Promise(function(res){ var i = new Image(); i.onload = function(){ (i.decode ? i.decode() : Promise.resolve()).catch(function(){}).then(function(){ step(); res(); }); }; i.onerror = function(){ step(); res(); }; i.src = u; }); }
+  var domReady = new Promise(function(r){ if (document.readyState !== 'loading') r(); else document.addEventListener('DOMContentLoaded', r); }).then(step);
+  /* 首屏图优先，其余并行 */
+  var first = PRE.length ? load(PRE[0]) : Promise.resolve();
+  var all = first.then(function(){ return Promise.all(PRE.slice(1).map(load)); });
+  Promise.all([domReady, all]).then(done);
+  setTimeout(function(){ tip.textContent = '网络有点慢，再等几秒…'; }, 6000);
+  setTimeout(done, 20000);   /* 兜底：最多等 20 秒 */
+})();</script>
+
 <script id="atuan-embed-script">
 (function () {
   'use strict';
@@ -7798,6 +7845,27 @@ function updateReading(){const max=document.documentElement.scrollHeight-innerHe
 #ipc-card.mini button{min-height:34px;padding:7px 11px;font-size:13px}
 #ipc-card.mini .pri{margin-left:0}
 #ipc-ring.play{display:none!important}
+/* 收起后醒目：飞入 + 闪烁 + 持续呼吸光 */
+#ipc-card.mini{animation:ipc-breathe 2.2s ease-in-out infinite}
+#ipc-card.mini.attn{animation:ipc-fly .55s cubic-bezier(.2,.9,.25,1.2) both,ipc-flash .5s ease-in-out .55s 4 alternate,ipc-breathe 2.2s ease-in-out 2.6s infinite}
+@keyframes ipc-fly{from{transform:translate(28vw,72vh) scale(1.25);opacity:.2}to{transform:none;opacity:1}}
+@keyframes ipc-flash{from{box-shadow:0 0 0 0 rgba(232,199,123,.95),0 18px 44px rgba(0,0,0,.4);background:#182A46}to{box-shadow:0 0 0 10px rgba(232,199,123,0),0 18px 44px rgba(0,0,0,.4);background:#2E4A74}}
+@keyframes ipc-breathe{0%,100%{box-shadow:0 0 0 0 rgba(232,199,123,.55),0 12px 30px rgba(0,0,0,.35)}50%{box-shadow:0 0 0 7px rgba(232,199,123,0),0 12px 30px rgba(0,0,0,.35)}}
+#ipc-card.mini::after{content:"引导在这";position:absolute;left:12px;top:100%;margin-top:8px;background:#E8C77B;color:#182A46;font:900 11.5px/1 -apple-system,"PingFang SC",sans-serif;padding:5px 8px;border-radius:7px;white-space:nowrap;pointer-events:none;opacity:0;animation:ipc-tag 4.2s ease .3s 1}
+#ipc-card.mini::before{content:"";position:absolute;left:26px;top:100%;margin-top:3px;border:5px solid transparent;border-bottom-color:#E8C77B;opacity:0;animation:ipc-tag 4.2s ease .3s 1}
+@keyframes ipc-tag{0%,100%{opacity:0;transform:translateY(-4px)}10%,85%{opacity:1;transform:none}}
+/* 游戏内指引：圈 + 气泡 */
+#ipc-ring.game{box-shadow:0 0 0 200vmax rgba(12,22,38,.22);border-color:#E8C77B;animation:ipc-pulse 1.1s ease-in-out infinite}
+#ipc-ring.game.round{border-radius:50%}
+#ipc-bub{position:fixed;left:0;top:0;z-index:2147481600;display:none;pointer-events:none;background:#E8C77B;color:#182A46;font:900 14px/1.35 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:9px 13px;border-radius:13px;box-shadow:0 10px 26px rgba(0,0,0,.35);max-width:min(380px,82vw);animation:ipc-bob 1.4s ease-in-out infinite}
+#ipc-bub::after{content:"";position:absolute;left:var(--ax,24px);border:8px solid transparent}
+#ipc-bub.up::after{top:100%;border-top-color:#E8C77B}
+#ipc-bub.down::after{bottom:100%;border-bottom-color:#E8C77B}
+#ipc-bub kbd{display:inline-block;min-width:24px;padding:2px 6px;margin:0 1px;border-radius:6px;background:#182A46;color:#E8C77B;font:900 13px/1.3 ui-monospace,Menlo,monospace;text-align:center;box-shadow:0 2px 0 #0d1830}
+@keyframes ipc-bob{0%,100%{translate:0 0}50%{translate:0 -4px}}
+#ipc-hand.drag svg{animation:ipc-drag 2s ease-in-out infinite}
+@keyframes ipc-drag{0%,100%{transform:translate(0,0)}25%{transform:translate(30px,0)}45%{transform:translate(0,0)}70%{transform:translate(0,-30px)}}
+
 html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan-guide-launcher,html.ip-stage-open #ip-home{display:none!important}
 /* 游戏步骤的小胶囊：放左上角，只盖标题文字，不挡「还原舞台」、摇杆和右下按钮 */
 #ipc-card.mini.top{left:10px;right:auto}
@@ -7806,14 +7874,14 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
 @media (prefers-reduced-motion:reduce){#ipc-ring.do,#ipc-hand svg,#ipc-dot{animation:none!important}}
 </style>
 <a id="ip-home" href="index.html">⌂ 返回首页</a>
-<div id="ipc-ring"></div><div id="ipc-dot"></div><div id="ipc-hand"></div>
+<div id="ipc-ring"></div><div id="ipc-dot"></div><div id="ipc-hand"></div><div id="ipc-bub"></div>
 <div id="ipc-card" role="dialog" aria-live="polite"></div>
 <script id="ip-coach">(function(){
   /* 一步一步的互动引导：框出目标 → 光标/手指提示 → 用户亲手点 → 展示效果 → 点「下一步」 */
   var inFrame = false; try { inFrame = window.top !== window; } catch (e) { inFrame = true; }
   if (!inFrame) document.getElementById('ip-home').style.display = 'inline-flex';
   var touch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
-  var ring = document.getElementById('ipc-ring'), hand = document.getElementById('ipc-hand'), dot = document.getElementById('ipc-dot'), card = document.getElementById('ipc-card');
+  var ring = document.getElementById('ipc-ring'), hand = document.getElementById('ipc-hand'), dot = document.getElementById('ipc-dot'), card = document.getElementById('ipc-card'), bub = document.getElementById('ipc-bub');
   hand.className = touch ? 'touch' : '';
   hand.innerHTML = touch
     ? '<svg viewBox="0 0 46 52"><path d="M14 4.5c2.6 0 4.5 2 4.5 4.6v14.2l1.6-.5c2.3-.6 4.5.9 4.9 3.1l.1.6 1.3-.3c2.3-.4 4.4 1 4.8 3.2l.1.5 1.1-.2c2.4-.3 4.6 1.4 4.8 3.8l.6 7.2c.5 6-3.6 11.4-9.5 12.5l-3 .5c-4.5.8-9-1.2-11.5-5L3.6 35.4c-1.3-2-.8-4.7 1.2-6 1.8-1.2 4.2-.9 5.7.7l-.9-.9V9.1C9.5 6.5 11.5 4.5 14 4.5z" fill="#fff" stroke="#182A46" stroke-width="2.4" stroke-linejoin="round"/></svg>'
@@ -7829,7 +7897,7 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
     {sel:'#compare-open', t:'前后对比', tip:'点 <b>「前后对比」</b>。', eff:'#compare', ok:'<b>左右拖动</b>中间的滑杆，看原图和新场景的差别。', wait:500},
     {sel:'#video-restart', t:'看一段原版视频', tip:'点 <b>「从头播放」</b>。', eff:'#panda-video', ok:'视频正在播放，可以全屏、调音量。', wait:500},
     {sel:'#atuan-expand', t:'进 3D 小游戏闯关', tip:'点 <b>「放大舞台」</b>，开始玩「阿团寻灯记」。', eff:'#atuan-stage', wait:700, play:true,
-     mini:'点「开始闯关」· 左下摇杆移动',
+     mini:'收集三盏灯火，跑到终点！', game:true,
      before:function(){ var t = q('#atuan-tab-lantern'); if (t && t.getAttribute('aria-selected') !== 'true') t.click(); }},
     {sel:'#atuan-tab-match', t:'再来一局消消乐', tip:'点 <b>「经典消消乐」</b>。', eff:'#atuan-panel-match', wait:700, play:true,
      mini:'交换相邻棋子，三连消除'}
@@ -7854,11 +7922,15 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
   function render(){
     var s = STEPS[cur];
     if (!s) return;
+    var wasMini = card.classList.contains('mini');
     card.classList.toggle('mini', mini);
+    if (mini && !wasMini) { card.classList.remove('attn'); void card.offsetWidth; card.classList.add('attn'); }
+    if (!mini) card.classList.remove('attn');
     card.classList.toggle('top', mini && s.play && phase === 'see');
     ring.classList.toggle('play', !!(s.play && phase === 'see'));
     if (mini) {
       var txt = phase === 'see' ? (s.mini || '做到了！') : s.t;
+      if (s.game && phase === 'see') txt = game.sub === 'start' ? '点「开始闯关」' : game.sub === 'stick' ? (touch ? '用左下摇杆：右推跑、上推跳' : '方向键 ← → 跑，↑ 跳') : txt;
       card.innerHTML = '<span class="mt"><i>' + (phase === 'see' ? '✓ ' : '') + (cur + 1) + '/' + N + '</i><span class="tx">' + txt + '</span></span>' +
         '<button type="button" class="sec" data-a="prev"' + (cur <= 0 ? ' disabled' : '') + ' aria-label="上一步">‹</button>' +
         '<button type="button" class="sec" data-a="next" aria-label="下一步">›</button>' +
@@ -7868,6 +7940,7 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
         navHTML('<button type="button" class="pri" data-a="next">' + nextLabel() + '</button>');
     } else {
       var ok = s.ok || ('<b>' + s.mini + '</b>。点「收起」就不挡游戏了。');
+      if (s.game) ok = '先点游戏里的 <b>「开始闯关」</b>，再' + (touch ? '按住<b>左下角摇杆</b>：右推奔跑、上推跳跃' : '用 <b>← →</b> 奔跑、<b>↑ / 空格</b> 跳跃') + '，收集三盏灯火跑到终点！';
       card.innerHTML = '<div class="k">跟我一步步玩' + stepsHTML() + '</div><h4><span class="ok">✓ 做到了！</span></h4><p>' + ok + '</p>' +
         navHTML('<button type="button" class="pri" data-a="next">' + nextLabel() + '</button>');
     }
@@ -7877,12 +7950,77 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
   function host(){
     var st = q('#atuan-stage');
     var h = (st && st.getAttribute('data-expanded') === 'true') ? st : document.body;
-    [ring, dot, hand, card].forEach(function(n){ if (n.parentNode !== h) h.appendChild(n); if (n.inert) n.inert = false; if (n.hasAttribute('inert')) n.removeAttribute('inert'); });
+    [ring, dot, hand, bub, card].forEach(function(n){ if (n.parentNode !== h) h.appendChild(n); if (n.inert) n.inert = false; if (n.hasAttribute('inert')) n.removeAttribute('inert'); });
+  }
+  /* ===== 游戏内子指引：开始闯关 → 摇杆/方向键 ===== */
+  var game = {sub:'', doc:null, used:false};
+  function fdoc(){ var f = q('#atuan-frame'); try { return f && f.contentDocument; } catch (e) { return null; } }
+  function irect(el){
+    var f = q('#atuan-frame').getBoundingClientRect(), r = el.getBoundingClientRect();
+    return {left:f.left + r.left, top:f.top + r.top, width:r.width, height:r.height, right:f.left + r.right, bottom:f.top + r.bottom};
+  }
+  function ivis(el){ if (!el) return false; var r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2; }
+  function gameBind(){
+    var d = fdoc(); if (!d || game.doc === d) return;
+    game.doc = d;
+    var sb = d.getElementById('start-btn');
+    if (sb) sb.addEventListener('click', function(){ if (game.sub === 'start') { game.sub = 'stick'; render(); } }, true);
+    function used(){ if (game.sub === 'stick') { game.used = true; setTimeout(function(){ if (game.sub === 'stick') { game.sub = 'done'; render(); } }, 1600); } }
+    var js = d.getElementById('joystick');
+    if (js) ['pointerdown','touchstart'].forEach(function(t){ js.addEventListener(t, used, {passive:true}); });
+    d.addEventListener('keydown', function(e){ if (/Arrow|^[adwADW ]$/.test(e.key)) used(); }, true);
+  }
+  function gameStart(){
+    gameBind();
+    var d = fdoc(), sb = d && d.getElementById('start-btn');
+    game.used = false;
+    game.sub = (sb && ivis(sb)) ? 'start' : 'stick';
+  }
+  function gameTarget(){
+    var d = fdoc(); if (!d) return null;
+    if (game.sub === 'start') { var sb = d.getElementById('start-btn'); return ivis(sb) ? {r:irect(sb), tap:true, round:false, tip:'点这里开始闯关'} : null; }
+    if (game.sub === 'stick') {
+      var js = d.getElementById('joystick');
+      if (ivis(js)) return {r:irect(js), drag:true, round:true, tip:'按住摇杆拖动：<b>向右</b>跑，<b>向上</b>跳'};
+      var kg = d.querySelector('.key-guide');
+      if (ivis(kg)) return {r:irect(kg), round:false, tip:'用键盘玩：<kbd>←</kbd><kbd>→</kbd> 跑　<kbd>↑</kbd>/<kbd>空格</kbd> 跳'};
+    }
+    return null;
+  }
+  function bubAt(r, html){
+    bub.innerHTML = html; bub.style.display = 'block';
+    var bw = bub.offsetWidth, bh = bub.offsetHeight, vw = window.innerWidth;
+    var x = Math.max(10, Math.min(vw - bw - 10, r.left + r.width / 2 - 30));
+    var above = r.top - bh - 18 > 8;
+    var y = above ? r.top - bh - 18 : r.bottom + 18;
+    bub.className = above ? 'up' : 'down';
+    bub.style.left = x + 'px'; bub.style.top = y + 'px';
+    bub.style.setProperty('--ax', Math.max(12, Math.min(bw - 28, r.left + r.width / 2 - x - 8)) + 'px');
   }
   function place(){
     raf = requestAnimationFrame(place);
     host();
     var s = STEPS[cur];
+    if (s && s.game && phase === 'see' && (game.sub === 'start' || game.sub === 'stick')) {
+      var g = gameTarget();
+      if (!g) { ring.style.display = hand.style.display = dot.style.display = bub.style.display = 'none'; return; }
+      var gp = g.round ? 10 : 8, gr = g.r;
+      ring.className = 'game' + (g.round ? ' round' : '');
+      ring.style.display = 'block';
+      ring.style.left = (gr.left - gp) + 'px'; ring.style.top = (gr.top - gp) + 'px';
+      ring.style.width = (gr.width + gp * 2) + 'px'; ring.style.height = (gr.height + gp * 2) + 'px';
+      bubAt(gr, g.tip);
+      if (g.tap || g.drag) {
+        var gx = gr.left + gr.width / 2, gy = gr.top + gr.height * (g.drag ? .5 : .6);
+        hand.className = (touch ? 'touch' : '') + (g.drag ? ' drag' : '');
+        hand.style.display = 'block'; dot.style.display = g.tap ? 'block' : 'none';
+        hand.style.transform = 'translate3d(' + (gx - HX) + 'px,' + (gy - HY) + 'px,0)';
+        dot.style.left = gx + 'px'; dot.style.top = gy + 'px';
+      } else { hand.style.display = dot.style.display = 'none'; }
+      return;
+    }
+    bub.style.display = 'none';
+    if (hand.className.indexOf('drag') >= 0) hand.className = touch ? 'touch' : '';
     if (!target || !vis(target) || (s && s.play && phase === 'see')) { ring.style.display = 'none'; hand.style.display = dot.style.display = 'none'; return; }
     var r = target.getBoundingClientRect(), pad = 8;
     ring.style.display = 'block';
@@ -7915,7 +8053,7 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
     if (i < 0) i = 0;
     if (i >= N) return finish();
     var my = ++seq;
-    cur = i; phase = 'do'; target = null; mini = false;
+    cur = i; phase = 'do'; target = null; mini = false; game.sub = '';
     ring.className = 'do';
     var s = STEPS[i];
     var wait = prep(i);
@@ -7935,6 +8073,7 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
     phase = 'see';
     ring.className = 'see';
     if (s.play) mini = true;          /* 游戏步骤：自动收成小胶囊，不挡摇杆 */
+    if (s.game) setTimeout(function(){ if (my === seq) { gameStart(); render(); } }, 900);
     setTimeout(function(){
       if (my !== seq) return;
       var eff = q(s.eff);
@@ -7969,7 +8108,7 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
     document.documentElement.classList.remove('ipc-on');
     active = false; phase = ''; target = null; seq++;
     cancelAnimationFrame(raf); raf = 0;
-    ring.style.display = hand.style.display = dot.style.display = card.style.display = 'none';
+    ring.style.display = hand.style.display = dot.style.display = card.style.display = bub.style.display = 'none';
     try { sessionStorage.setItem('ip-coach-done', '1'); } catch (e) {}
   }
   function start(){
@@ -8006,8 +8145,8 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
     var done = false; try { done = sessionStorage.getItem('ip-coach-done') === '1'; } catch (e) {}
     if (!done && !active) start();
   }
-  window.addEventListener('load', function(){ hookLauncher(); setTimeout(autoStart, 900); });
-  window.addEventListener('message', function(e){ if (e.data && e.data.type === 'ip-autotour') autoStart(); });
+  window.addEventListener('load', function(){ hookLauncher(); (window.__ipReady || Promise.resolve()).then(function(){ setTimeout(autoStart, 600); }); });
+  window.addEventListener('message', function(e){ if (e.data && e.data.type === 'ip-autotour') (window.__ipReady || Promise.resolve()).then(autoStart); });
 })();</script>
 <script id="ip-lazy-video">(function(){
   var v = document.getElementById('panda-video'); if (!v) return;
