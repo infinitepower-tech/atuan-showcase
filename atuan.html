@@ -8264,7 +8264,7 @@ html.ipc-on #panda-video{pointer-events:none}
     else if (a === 'min') { mini = true; render(); }
     else if (a === 'max') { mini = false; render(); }
     else if (a === 'end') { userExited = true; stop(); }
-    else if (a === 'again') { userExited = false; start(true); }
+    else if (a === 'again') { userExited = false; card.style.display = 'none'; showWelcome(true); }
     else if (a === 'close') { card.style.display = 'none'; }
     else if (a === 'nextmod') { gotoModule('#/is'); }
   });
@@ -8322,7 +8322,7 @@ html.ipc-on #panda-video{pointer-events:none}
     var t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     if ([' ', 'PageDown', 'PageUp', 'ArrowDown', 'ArrowUp', 'Home', 'End'].indexOf(e.key) >= 0 && !(t && t.closest && t.closest('#atuan-stage[data-expanded="true"], .p3-grid'))) e.preventDefault();
   }, true);
-  window.IPCoach = {start:function(){ start(true); }, stop:stop, go:function(i){ go(i); }, welcome:function(){ showWelcome(); }};
+  window.IPCoach = {start:function(){ start(true); }, stop:stop, go:function(i){ go(i); }, welcome:function(story){ showWelcome(story); }};
   (function watchStage(){
     var st = q('#atuan-stage');
     if (!st) return setTimeout(watchStage, 500);
@@ -8341,9 +8341,10 @@ html.ipc-on #panda-video{pointer-events:none}
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && active && !mini) { mini = true; render(); } });
 
   /* ===== 欢迎层 ===== */
-  function showWelcome(){
+  function showWelcome(story){
     if (active) return;
     welcome.hidden = false; welcome.classList.remove('out', 'story');
+    if (story) { welcome.classList.add('story'); var wc = welcome.querySelector('.w-card'); if (wc) wc.scrollTop = 0; }
     document.documentElement.classList.add('ipc-welcome-on');
     var g = welcome.querySelector('.w-go'); try { g.focus({preventScroll:true}); } catch (e) {}
   }
@@ -8371,7 +8372,7 @@ html.ipc-on #panda-video{pointer-events:none}
     var b = e.target && e.target.closest && e.target.closest('.atuan-tour-open');
     if (!b) return;
     e.stopImmediatePropagation(); e.preventDefault();
-    if (active) { userExited = true; stop(); } else { userExited = false; start(true); }
+    if (active) { userExited = true; stop(); } else { userExited = false; showWelcome(true); }   /* 先讲故事，再开始 */
   }, true);
   /* 每次进入：先显示欢迎层（不依赖 load 事件，外部资源慢也不影响） */
   var userExited = false, booted = false;
@@ -8404,7 +8405,8 @@ html.ipc-on #panda-video{pointer-events:none}
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', cmpBind); else cmpBind();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
-  window.addEventListener('message', function(e){ if (e.data && e.data.type === 'ip-autotour') { if (!booted) boot(); else if (!active && !userExited) showWelcome(); } });
+  /* 每次从门户重新进入这个板块：没在引导中就重新显示欢迎页（之前点过「先自己逛逛」也一样） */
+  window.addEventListener('message', function(e){ if (e.data && e.data.type === 'ip-autotour') { if (!booted) boot(); else if (!active) { userExited = false; card.style.display = 'none'; showWelcome(); } } });
 })();</script>
 <script id="ip-upgrade">(function(){
   /* 页面里已内嵌「手机清晰度」的图片，打开即完整显示；这里在后台换成高清版。
