@@ -841,7 +841,7 @@
 </head>
 <body><div id="ip-splash" role="status" aria-live="polite">
   <div class="ips-in">
-    <div class="ips-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="bg"/><circle cx="60" cy="60" r="52" class="fg" id="ips-arc"/></svg><span id="ips-pct">0%</span></div>
+    <div class="ips-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="bg"/><circle cx="60" cy="60" r="52" class="fg" id="ips-arc"/></svg><span id="ips-pct">8%</span></div>
     <b>正在准备小熊猫阿团的世界</b>
     <small id="ips-tip">图片、视频和小游戏马上就好</small>
   </div>
@@ -854,37 +854,60 @@
 #ip-splash svg{width:100%;height:100%;transform:rotate(-90deg)}
 #ip-splash circle{fill:none;stroke-width:8;stroke-linecap:round}
 #ip-splash .bg{stroke:rgba(232,199,123,.18)}
-#ip-splash .fg{stroke:#E8C77B;stroke-dasharray:326.7;stroke-dashoffset:326.7;transition:stroke-dashoffset .3s ease}
-#ip-splash #ips-pct{position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#E8C77B}
+#ip-splash .fg{stroke:#E8C77B;stroke-dasharray:326.7;stroke-dashoffset:300.6}
+#ip-splash #ips-pct{position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#E8C77B;font-variant-numeric:tabular-nums}
 #ip-splash b{font-size:18px;font-weight:900}
 #ip-splash small{font-size:13.5px;color:#AFC0DA}
 html.ip-loading,html.ip-loading body{overflow:hidden}
 </style>
 <script id="ip-splash-script">(function(){
-  var PRE = ["assets/atuan/panda-6e9563f999.webp", "assets/atuan/preview-power-29f45a3b4c.webp", "assets/atuan/preview-mist-5414d42d94.webp", "assets/atuan/preview-puzzled-c27533df60.webp", "assets/atuan/bamboo-db322386b6.webp", "assets/atuan/night-3573f303a3.webp", "assets/atuan/snow-322217b571.webp", "assets/atuan/game-panda-aa18dd6b8f.webp", "assets/atuan/poster.jpg"];
+  /* 进度 = 按字节计的真实下载进度，再叠加一条平滑的「保底」曲线，任何网速下数字都在动，不会停在 0% */
+  var PRE = [["assets/atuan/panda-6e9563f999.webp", 270916], ["assets/atuan/preview-power-29f45a3b4c.webp", 199964], ["assets/atuan/preview-mist-5414d42d94.webp", 163754], ["assets/atuan/preview-puzzled-c27533df60.webp", 163542], ["assets/atuan/bamboo-db322386b6.webp", 229812], ["assets/atuan/night-3573f303a3.webp", 188882], ["assets/atuan/snow-322217b571.webp", 182322], ["assets/atuan/game-panda-aa18dd6b8f.webp", 40132], ["assets/atuan/poster.jpg", 93597]];
   var root = document.documentElement; root.classList.add('ip-loading');
   var arc = document.getElementById('ips-arc'), pct = document.getElementById('ips-pct'), tip = document.getElementById('ips-tip');
-  var n = 0, total = PRE.length + 1, shown = 0, finished = false;
-  function set(v){ shown = Math.max(shown, v); arc.style.strokeDashoffset = 326.7 * (1 - shown); pct.textContent = Math.round(shown * 100) + '%'; }
-  function step(){ n++; set(n / total); }
+  var TOTAL = 0; PRE.forEach(function(p){ TOTAL += p[1]; }); TOTAL = TOTAL || 1;
+  var got = {}, loaded = 0, finished = false, t0 = Date.now(), shown = 0.08;
+  function real(){ var b = 0; for (var k in got) b += got[k]; return Math.min(1, b / TOTAL); }
+  function tick(){
+    if (finished) return;
+    var el = (Date.now() - t0) / 1000;
+    var soft = 0.08 + 0.80 * (1 - Math.exp(-el / 3.2));      /* 保底：约 3 秒到 60%、8 秒到 85% */
+    var target = Math.max(0.08 + real() * 0.9, soft);
+    shown += (Math.min(target, 0.97) - shown) * 0.18;
+    paint(shown);
+    requestAnimationFrame(tick);
+  }
+  function paint(v){ arc.style.strokeDashoffset = (326.7 * (1 - v)).toFixed(1); pct.textContent = Math.round(v * 100) + '%'; }
+  requestAnimationFrame(tick);
   var resolveReady; window.__ipReady = new Promise(function(r){ resolveReady = r; });
   function done(){
-    if (finished) return; finished = true; set(1);
-    setTimeout(function(){
-      root.classList.remove('ip-loading');
-      document.getElementById('ip-splash').classList.add('done');
-      resolveReady();
-      try { parent.postMessage({type:'ip-atuan-ready'}, '*'); } catch (e) {}
-    }, 180);
+    if (finished) return; finished = true;
+    var from = shown, s0 = Date.now();
+    (function fin(){ var k = Math.min(1, (Date.now() - s0) / 260); paint(from + (1 - from) * k); if (k < 1) return requestAnimationFrame(fin);
+      setTimeout(function(){
+        root.classList.remove('ip-loading');
+        document.getElementById('ip-splash').classList.add('done');
+        resolveReady();
+        try { parent.postMessage({type:'ip-atuan-ready'}, '*'); } catch (e) {}
+      }, 120);
+    })();
   }
-  function load(u){ return new Promise(function(res){ var i = new Image(); i.onload = function(){ (i.decode ? i.decode() : Promise.resolve()).catch(function(){}).then(function(){ step(); res(); }); }; i.onerror = function(){ step(); res(); }; i.src = u; }); }
-  var domReady = new Promise(function(r){ if (document.readyState !== 'loading') r(); else document.addEventListener('DOMContentLoaded', r); }).then(step);
-  /* 首屏图优先，其余并行 */
-  var first = PRE.length ? load(PRE[0]) : Promise.resolve();
-  var all = first.then(function(){ return Promise.all(PRE.slice(1).map(load)); });
+  function decode(u){ return new Promise(function(res){ var i = new Image(); i.onload = function(){ (i.decode ? i.decode() : Promise.resolve()).catch(function(){}).then(res); }; i.onerror = res; i.src = u; }); }
+  function load(p){
+    var u = p[0], size = p[1];
+    if (!(window.fetch && window.ReadableStream)) return decode(u).then(function(){ got[u] = size; });
+    return fetch(u).then(function(r){
+      if (!r.ok || !r.body) throw 0;
+      var rd = r.body.getReader();
+      return (function pump(){ return rd.read().then(function(x){ if (x.done) return; got[u] = (got[u] || 0) + x.value.length; return pump(); }); })();
+    }).catch(function(){}).then(function(){ got[u] = size; return decode(u); });
+  }
+  var domReady = new Promise(function(r){ if (document.readyState !== 'loading') r(); else document.addEventListener('DOMContentLoaded', r); });
+  /* 首屏图先发，其余并行 */
+  var all = PRE.length ? load(PRE[0]).then(function(){ return Promise.all(PRE.slice(1).map(load)); }) : Promise.resolve();
   Promise.all([domReady, all]).then(done);
-  setTimeout(function(){ tip.textContent = '网络有点慢，再等几秒…'; }, 6000);
-  setTimeout(done, 20000);   /* 兜底：最多等 20 秒 */
+  setTimeout(function(){ if (!finished) tip.textContent = '网络有点慢，再等几秒…'; }, 7000);
+  setTimeout(done, 20000);
 })();</script>
 
 <script id="atuan-embed-script">
@@ -7864,6 +7887,10 @@ function updateReading(){const max=document.documentElement.scrollHeight-innerHe
 #ipc-bub kbd{display:inline-block;min-width:24px;padding:2px 6px;margin:0 1px;border-radius:6px;background:#182A46;color:#E8C77B;font:900 13px/1.3 ui-monospace,Menlo,monospace;text-align:center;box-shadow:0 2px 0 #0d1830}
 @keyframes ipc-bob{0%,100%{translate:0 0}50%{translate:0 -4px}}
 #ipc-hand.drag svg{animation:ipc-drag 2s ease-in-out infinite}
+#ipc-hand.swipe svg{animation:ipc-swipe 1.8s ease-in-out infinite}
+@keyframes ipc-swipe{0%,15%{transform:translate(0,0) scale(1)}25%{transform:translate(0,0) scale(.88)}55%{transform:translate(var(--sw,58px),0) scale(.88)}65%{transform:translate(var(--sw,58px),0) scale(1);opacity:1}85%,100%{transform:translate(var(--sw,58px),0);opacity:0}}
+#ipc-card .spin-s{display:inline-block;width:16px;height:16px;margin-right:8px;vertical-align:-2px;border-radius:50%;border:3px solid rgba(232,199,123,.3);border-top-color:#E8C77B;animation:ipc-spin .8s linear infinite}
+@keyframes ipc-spin{to{transform:rotate(360deg)}}
 @keyframes ipc-drag{0%,100%{transform:translate(0,0)}25%{transform:translate(30px,0)}45%{transform:translate(0,0)}70%{transform:translate(0,-30px)}}
 
 html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan-guide-launcher,html.ip-stage-open #ip-home{display:none!important}
@@ -7891,17 +7918,34 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
   function q(s){ return document.querySelector(s); }
   function vis(el){ if (!el) return false; var r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2; }
   var STEPS = [
-    {sel:'.chip[data-add*="晨雾"]', t:'先选一个画面方向', tip:'点一下 <b>「增加晨雾」</b>，描述里会自动加上这句话。', eff:'#prompt', ok:'描述里多了「晨雾穿过竹叶」。下一步让它出图。', wait:250},
-    {sel:'#generate', t:'生成图片预览', tip:'点 <b>「生成预览」</b>，看看图片怎么变。', eff:'#preview', ok:'看，画面换成了「晨雾竹林」版本！', wait:1100},
+    {sel:'.chip[data-add*="仰拍"]', t:'先选一个画面方向', tip:'点一下 <b>「镜头更有气势」</b>，描述里会自动加上「镜头略微仰拍」。', eff:'#prompt', ok:'描述里多了「镜头略微仰拍」。下一步让它出图，看看气势的变化。', wait:250},
+    {sel:'#generate', t:'生成图片预览', tip:'点 <b>「生成预览」</b>，看看图片怎么变。', eff:'#preview', instant:true,
+     busy:'正在生成新画面…', ok:'看！镜头压低、仰拍之后，阿团一下子有了「主角气场」，和刚才的原图对比很明显。',
+     okAlt:function(){ var t = q('#preview-title'); return '看，画面换成了「' + (t ? t.textContent : '新版本') + '」！'; },
+     okIf:function(){ var p = q('#preview'); return p && p.getAttribute('data-variant') === 'power'; },
+     waitFor:function(old){ return waitChange('#preview', 'data-variant', old, 4000); }},
     {sel:'.scene-tab[data-scene="night"]', t:'换一个场景', tip:'点 <b>「夜晚灯会」</b>：主角不变，只换世界。', eff:'#scene-image', ok:'同一只阿团，从白天竹林来到了夜晚灯会。', wait:700},
     {sel:'#compare-open', t:'前后对比', tip:'点 <b>「前后对比」</b>。', eff:'#compare', ok:'<b>左右拖动</b>中间的滑杆，看原图和新场景的差别。', wait:500},
     {sel:'#video-restart', t:'看一段原版视频', tip:'点 <b>「从头播放」</b>。', eff:'#panda-video', ok:'视频正在播放，可以全屏、调音量。', wait:500},
     {sel:'#atuan-expand', t:'进 3D 小游戏闯关', tip:'点 <b>「放大舞台」</b>，开始玩「阿团寻灯记」。', eff:'#atuan-stage', wait:700, play:true,
      mini:'收集三盏灯火，跑到终点！', game:true,
      before:function(){ var t = q('#atuan-tab-lantern'); if (t && t.getAttribute('aria-selected') !== 'true') t.click(); }},
-    {sel:'#atuan-tab-match', t:'再来一局消消乐', tip:'点 <b>「经典消消乐」</b>。', eff:'#atuan-panel-match', wait:700, play:true,
-     mini:'交换相邻棋子，三连消除'}
+    {sel:'#atuan-tab-match', t:'再来一局消消乐', tip:'点 <b>「经典消消乐」</b>。', eff:'#panda-match-game .p3-board-frame', wait:450, play:true, board:true,
+     mini:'在棋盘上滑动棋子，三连就消除'}
   ];
+  function waitChange(sel, attr, old, ms){
+    return new Promise(function(res){
+      var t0 = Date.now();
+      (function chk(){ var el = q(sel); var v = el && el.getAttribute(attr); var g = q('#generate');
+        if ((v && v !== old) || (Date.now() - t0 > 700 && g && !g.disabled) || Date.now() - t0 > ms) return res(); requestAnimationFrame(chk); })();
+    });
+  }
+  function waitAttr(sel, attr, val, ms){
+    return new Promise(function(res){
+      var el = q(sel), t0 = Date.now();
+      (function chk(){ el = el || q(sel); if ((el && el.getAttribute(attr) === val) || Date.now() - t0 > ms) return res(); requestAnimationFrame(chk); })();
+    });
+  }
   var N = STEPS.length;
   var cur = -1, phase = '', target = null, raf = 0, active = false, mini = false, seq = 0;
   var visited = {};
@@ -7927,10 +7971,11 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
     if (mini && !wasMini) { card.classList.remove('attn'); void card.offsetWidth; card.classList.add('attn'); }
     if (!mini) card.classList.remove('attn');
     card.classList.toggle('top', mini && s.play && phase === 'see');
-    ring.classList.toggle('play', !!(s.play && phase === 'see'));
+    ring.classList.toggle('play', !!(s.play && !s.board && phase === 'see' && !(s.game && (game.sub === 'start' || game.sub === 'stick'))));
     if (mini) {
       var txt = phase === 'see' ? (s.mini || '做到了！') : s.t;
       if (s.game && phase === 'see') txt = game.sub === 'start' ? '点「开始闯关」' : game.sub === 'stick' ? (touch ? '用左下摇杆：右推跑、上推跳' : '方向键 ← → 跑，↑ 跳') : txt;
+      if (s.board && phase === 'see') txt = board.sub === 'swipe' ? '按住棋子滑动，凑三连' : '玩得开心！可以点 › 完成';
       card.innerHTML = '<span class="mt"><i>' + (phase === 'see' ? '✓ ' : '') + (cur + 1) + '/' + N + '</i><span class="tx">' + txt + '</span></span>' +
         '<button type="button" class="sec" data-a="prev"' + (cur <= 0 ? ' disabled' : '') + ' aria-label="上一步">‹</button>' +
         '<button type="button" class="sec" data-a="next" aria-label="下一步">›</button>' +
@@ -7940,6 +7985,8 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
         navHTML('<button type="button" class="pri" data-a="next">' + nextLabel() + '</button>');
     } else {
       var ok = s.ok || ('<b>' + s.mini + '</b>。点「收起」就不挡游戏了。');
+      if (s.okIf && !s.okIf() && s.okAlt) ok = s.okAlt();
+      if (s.__busy) { card.innerHTML = '<div class="k">跟我一步步玩' + stepsHTML() + '</div><h4><span class="spin-s"></span>' + (s.busy || '处理中…') + '</h4><p>看图片区域，马上就好。</p>' + navHTML('<button type="button" class="pri" data-a="next">' + nextLabel() + '</button>'); card.style.display = 'block'; return; }
       if (s.game) ok = '先点游戏里的 <b>「开始闯关」</b>，再' + (touch ? '按住<b>左下角摇杆</b>：右推奔跑、上推跳跃' : '用 <b>← →</b> 奔跑、<b>↑ / 空格</b> 跳跃') + '，收集三盏灯火跑到终点！';
       card.innerHTML = '<div class="k">跟我一步步玩' + stepsHTML() + '</div><h4><span class="ok">✓ 做到了！</span></h4><p>' + ok + '</p>' +
         navHTML('<button type="button" class="pri" data-a="next">' + nextLabel() + '</button>');
@@ -8019,9 +8066,27 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
       } else { hand.style.display = dot.style.display = 'none'; }
       return;
     }
+    if (s && s.board && phase === 'see') {
+      var bf = target;
+      if (!bf || !vis(bf)) { ring.style.display = hand.style.display = dot.style.display = bub.style.display = 'none'; return; }
+      var br = bf.getBoundingClientRect(), bp = 6;
+      ring.className = 'game';
+      ring.style.display = 'block';
+      ring.style.left = (br.left - bp) + 'px'; ring.style.top = (br.top - bp) + 'px';
+      ring.style.width = (br.width + bp * 2) + 'px'; ring.style.height = (br.height + bp * 2) + 'px';
+      if (board.sub === 'swipe') {
+        bubAt(br, '按住一枚棋子，<b>左右或上下滑动</b>和旁边交换，三个一样的连成线就消除！');
+        var cx = br.left + br.width * (2.5 / 6), cy = br.top + br.height * (3.5 / 6);
+        hand.className = (touch ? 'touch' : '') + ' swipe';
+        hand.style.setProperty('--sw', Math.round(br.width / 6) + 'px');
+        hand.style.display = 'block'; dot.style.display = 'none';
+        hand.style.transform = 'translate3d(' + (cx - HX) + 'px,' + (cy - HY) + 'px,0)';
+      } else { hand.style.display = dot.style.display = bub.style.display = 'none'; }
+      return;
+    }
     bub.style.display = 'none';
-    if (hand.className.indexOf('drag') >= 0) hand.className = touch ? 'touch' : '';
-    if (!target || !vis(target) || (s && s.play && phase === 'see')) { ring.style.display = 'none'; hand.style.display = dot.style.display = 'none'; return; }
+    if (hand.className.indexOf('drag') >= 0 || hand.className.indexOf('swipe') >= 0) hand.className = touch ? 'touch' : '';
+    if (!target || !vis(target) || (s && s.play && !s.board && phase === 'see')) { ring.style.display = 'none'; hand.style.display = dot.style.display = 'none'; return; }
     var r = target.getBoundingClientRect(), pad = 8;
     ring.style.display = 'block';
     ring.style.left = (r.left - pad) + 'px'; ring.style.top = (r.top - pad) + 'px';
@@ -8053,7 +8118,7 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
     if (i < 0) i = 0;
     if (i >= N) return finish();
     var my = ++seq;
-    cur = i; phase = 'do'; target = null; mini = false; game.sub = '';
+    cur = i; phase = 'do'; target = null; mini = false; game.sub = ''; board.sub = '';
     ring.className = 'do';
     var s = STEPS[i];
     var wait = prep(i);
@@ -8074,17 +8139,32 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan
     ring.className = 'see';
     if (s.play) mini = true;          /* 游戏步骤：自动收成小胶囊，不挡摇杆 */
     if (s.game) setTimeout(function(){ if (my === seq) { gameStart(); render(); } }, 900);
-    setTimeout(function(){
-      if (my !== seq) return;
+    if (s.board) board.sub = '';
+    function show(){
       var eff = q(s.eff);
-      if (vis(eff)) { target = eff; if (!s.play) scrollToEl(eff, touch ? .38 : .45); }
-      render();
-    }, s.wait || 400);
+      if (vis(eff)) { target = eff; if (!s.play || s.board) scrollToEl(eff, s.board ? (touch ? .56 : .52) : (touch ? .38 : .45)); }
+      if (s.board) setTimeout(function(){ if (my === seq) { board.sub = 'swipe'; boardBind(); render(); } }, 650);
+    }
+    if (s.instant) {
+      /* 立刻把框移到图片上，生成完成后再出「做到了」 */
+      show(); s.__busy = true; render();
+      (s.waitFor ? s.waitFor(s.__old) : Promise.resolve()).then(function(){ if (my !== seq) return; s.__busy = false; render(); });
+      return;
+    }
+    setTimeout(function(){ if (my !== seq) return; show(); render(); }, s.wait || 400);
+  }
+  /* 消消乐：框住整个棋盘 + 手指滑动示意，用户一动手就收起 */
+  var board = {sub:'', bound:null};
+  function boardBind(){
+    var g = q('#panda-match-game .p3-grid');
+    if (!g || board.bound === g) return;
+    board.bound = g;
+    ['pointerdown','touchstart','mousedown'].forEach(function(t){ g.addEventListener(t, function(){ if (board.sub === 'swipe') { board.sub = 'done'; render(); } }, {passive:true, capture:true}); });
   }
   function onClick(e){
     if (!active || phase !== 'do' || !target) return;
     if (card.contains(e.target)) return;
-    if (target === e.target || target.contains(e.target)) seeEffect();
+    if (target === e.target || target.contains(e.target)) { var st = STEPS[cur]; if (st && st.instant) { var pv = q('#preview'); st.__old = pv && pv.getAttribute('data-variant'); } seeEffect(); }
   }
   card.addEventListener('click', function(e){
     var b = e.target.closest('button'); if (!b || b.disabled) return;
