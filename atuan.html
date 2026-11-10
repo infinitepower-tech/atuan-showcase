@@ -7776,20 +7776,33 @@ function updateReading(){const max=document.documentElement.scrollHeight-innerHe
 /* 底部说明卡 */
 #ipc-card{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:2147482000;width:min(460px,calc(100vw - 20px));background:#182A46;color:#fff;border:2px solid #E8C77B;border-radius:20px;padding:14px 16px 14px;box-shadow:0 18px 44px rgba(0,0,0,.4);font:500 15px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;display:none}
 #ipc-card .k{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#E8C77B;letter-spacing:.5px}
-#ipc-card .dots{display:flex;gap:4px;margin-left:auto}
-#ipc-card .dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.22)}
-#ipc-card .dots i.on{background:#E8C77B;width:16px;border-radius:4px}
-#ipc-card .dots i.done{background:rgba(232,199,123,.6)}
-#ipc-card h4{margin:6px 0 2px;font-size:18px;font-weight:900;color:#fff;line-height:1.35}
+#ipc-card .steps{display:flex;gap:4px;margin-left:auto}
+#ipc-card .steps button{width:25px;height:25px;min-height:0;padding:0;border-radius:50%;background:rgba(255,255,255,.12);color:#C9D3E5;font:800 12px/25px -apple-system,"PingFang SC",sans-serif;text-align:center}
+#ipc-card .steps button.done{background:rgba(232,199,123,.25);color:#E8C77B}
+#ipc-card .steps button.on{background:#E8C77B;color:#182A46;box-shadow:0 0 0 2px rgba(232,199,123,.35)}
+#ipc-card h4{margin:8px 0 2px;font-size:18px;font-weight:900;color:#fff;line-height:1.35}
 #ipc-card p{margin:0;color:#D5DDEA;font-size:14.5px}
 #ipc-card p b{color:#E8C77B}
 #ipc-card .ok{color:#7FE0A8;font-weight:900}
-#ipc-card .acts{display:flex;gap:8px;margin-top:12px;align-items:center}
-#ipc-card button{border:0;cursor:pointer;font:800 14px/1 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;border-radius:999px;padding:10px 16px;min-height:40px}
+#ipc-card .acts{display:flex;gap:6px;margin-top:12px;align-items:center}
+#ipc-card button{border:0;cursor:pointer;font:800 14px/1 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;border-radius:999px;padding:10px 14px;min-height:40px;-webkit-tap-highlight-color:transparent}
+#ipc-card button:disabled{opacity:.3;cursor:default}
 #ipc-card .pri{background:#E8C77B;color:#182A46;margin-left:auto}
-#ipc-card .sec{background:rgba(255,255,255,.1);color:#D5DDEA}
-#ipc-card .lnk{background:none;color:#9AA8BE;padding:10px 6px}
-html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home{display:none!important}
+#ipc-card .sec{background:rgba(255,255,255,.12);color:#fff}
+#ipc-card .lnk{background:none;color:#9AA8BE;padding:10px 8px}
+/* 收起后的小胶囊：不挡游戏摇杆 */
+#ipc-card.mini{left:auto;right:10px;transform:none;width:auto;max-width:calc(100vw - 20px);padding:6px;border-radius:999px;display:flex;align-items:center;gap:4px}
+#ipc-card.mini.top{bottom:auto;top:calc(10px + env(safe-area-inset-top,0px))}
+#ipc-card.mini .mt{font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(210px,calc(100vw - 190px));padding:0 6px 0 8px}
+#ipc-card.mini .mt i{font-style:normal;color:#E8C77B;margin-right:4px}
+#ipc-card.mini button{min-height:34px;padding:7px 11px;font-size:13px}
+#ipc-card.mini .pri{margin-left:0}
+#ipc-ring.play{display:none!important}
+html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home,html.ip-stage-open .atuan-guide-launcher,html.ip-stage-open #ip-home{display:none!important}
+/* 游戏步骤的小胶囊：放左上角，只盖标题文字，不挡「还原舞台」、摇杆和右下按钮 */
+#ipc-card.mini.top{left:10px;right:auto}
+#ipc-card.mini .tx{display:inline}
+@media (max-width:640px){#ipc-card.mini.top .tx{display:none}#ipc-card.mini.top .mt{padding-right:2px}}
 @media (prefers-reduced-motion:reduce){#ipc-ring.do,#ipc-hand svg,#ipc-dot{animation:none!important}}
 </style>
 <a id="ip-home" href="index.html">⌂ 返回首页</a>
@@ -7815,16 +7828,52 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home{display:none!important}
     {sel:'.scene-tab[data-scene="night"]', t:'换一个场景', tip:'点 <b>「夜晚灯会」</b>：主角不变，只换世界。', eff:'#scene-image', ok:'同一只阿团，从白天竹林来到了夜晚灯会。', wait:700},
     {sel:'#compare-open', t:'前后对比', tip:'点 <b>「前后对比」</b>。', eff:'#compare', ok:'<b>左右拖动</b>中间的滑杆，看原图和新场景的差别。', wait:500},
     {sel:'#video-restart', t:'看一段原版视频', tip:'点 <b>「从头播放」</b>。', eff:'#panda-video', ok:'视频正在播放，可以全屏、调音量。', wait:500},
-    {sel:'#atuan-expand', t:'进 3D 小游戏闯关', tip:'点 <b>「放大舞台」</b>，开始玩「阿团寻灯记」。', eff:'#atuan-stage', ok:'点游戏里的 <b>「开始闯关」</b>，用方向键（手机用左下摇杆）让阿团跑、跳，收集三盏灯！', wait:700,
+    {sel:'#atuan-expand', t:'进 3D 小游戏闯关', tip:'点 <b>「放大舞台」</b>，开始玩「阿团寻灯记」。', eff:'#atuan-stage', wait:700, play:true,
+     mini:'点「开始闯关」· 左下摇杆移动',
      before:function(){ var t = q('#atuan-tab-lantern'); if (t && t.getAttribute('aria-selected') !== 'true') t.click(); }},
-    {sel:'#atuan-tab-match', t:'再来一局消消乐', tip:'点 <b>「经典消消乐」</b>。', eff:'#atuan-panel-match', ok:'交换相邻的棋子，三个连成一线就能消除。', wait:700,
-     before:function(){ var c = q('#atuan-close'); if (c && !c.hidden) c.click(); }, delay:1300}
+    {sel:'#atuan-tab-match', t:'再来一局消消乐', tip:'点 <b>「经典消消乐」</b>。', eff:'#atuan-panel-match', wait:700, play:true,
+     mini:'交换相邻棋子，三连消除'}
   ];
-  var cur = -1, phase = '', target = null, raf = 0, active = false, clickH = null;
+  var N = STEPS.length;
+  var cur = -1, phase = '', target = null, raf = 0, active = false, mini = false, seq = 0;
+  var visited = {};
 
-  function dotsHTML(){ var h = ''; for (var i = 0; i < STEPS.length; i++) h += '<i class="' + (i === cur ? 'on' : (i < cur ? 'done' : '')) + '"></i>'; return h; }
-  function setCard(html){ card.innerHTML = html; card.style.display = 'block'; }
-  /* 舞台放大时原页面会把舞台外的元素设为 inert，引导卡片需跟进舞台内部 */
+  function stepsHTML(){
+    var h = '';
+    for (var i = 0; i < N; i++) h += '<button type="button" data-a="jump" data-i="' + i + '" class="' + (i === cur ? 'on' : (visited[i] ? 'done' : '')) + '" aria-label="跳到第 ' + (i + 1) + ' 步">' + (i + 1) + '</button>';
+    return '<span class="steps">' + h + '</span>';
+  }
+  function navHTML(primary){
+    return '<div class="acts">' +
+      '<button type="button" class="sec" data-a="prev"' + (cur <= 0 ? ' disabled' : '') + '>‹ 上一步</button>' +
+      '<button type="button" class="lnk" data-a="min">收起</button>' +
+      '<button type="button" class="lnk" data-a="end">退出</button>' +
+      primary + '</div>';
+  }
+  function nextLabel(){ return cur >= N - 1 ? '完成 🎉' : '下一步 ›'; }
+  function render(){
+    var s = STEPS[cur];
+    if (!s) return;
+    card.classList.toggle('mini', mini);
+    card.classList.toggle('top', mini && s.play && phase === 'see');
+    ring.classList.toggle('play', !!(s.play && phase === 'see'));
+    if (mini) {
+      var txt = phase === 'see' ? (s.mini || '做到了！') : s.t;
+      card.innerHTML = '<span class="mt"><i>' + (phase === 'see' ? '✓ ' : '') + (cur + 1) + '/' + N + '</i><span class="tx">' + txt + '</span></span>' +
+        '<button type="button" class="sec" data-a="prev"' + (cur <= 0 ? ' disabled' : '') + ' aria-label="上一步">‹</button>' +
+        '<button type="button" class="sec" data-a="next" aria-label="下一步">›</button>' +
+        '<button type="button" class="pri" data-a="max">展开</button>';
+    } else if (phase === 'do') {
+      card.innerHTML = '<div class="k">跟我一步步玩' + stepsHTML() + '</div><h4>' + s.t + '</h4><p>' + s.tip + '</p>' +
+        navHTML('<button type="button" class="pri" data-a="next">' + nextLabel() + '</button>');
+    } else {
+      var ok = s.ok || ('<b>' + s.mini + '</b>。点「收起」就不挡游戏了。');
+      card.innerHTML = '<div class="k">跟我一步步玩' + stepsHTML() + '</div><h4><span class="ok">✓ 做到了！</span></h4><p>' + ok + '</p>' +
+        navHTML('<button type="button" class="pri" data-a="next">' + nextLabel() + '</button>');
+    }
+    card.style.display = mini ? 'flex' : 'block';
+  }
+  /* 舞台放大时原页面会把舞台外的元素设为 inert，引导元素需跟进舞台内部 */
   function host(){
     var st = q('#atuan-stage');
     var h = (st && st.getAttribute('data-expanded') === 'true') ? st : document.body;
@@ -7833,7 +7882,8 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home{display:none!important}
   function place(){
     raf = requestAnimationFrame(place);
     host();
-    if (!target || !vis(target)) { ring.style.display = 'none'; hand.style.display = dot.style.display = 'none'; return; }
+    var s = STEPS[cur];
+    if (!target || !vis(target) || (s && s.play && phase === 'see')) { ring.style.display = 'none'; hand.style.display = dot.style.display = 'none'; return; }
     var r = target.getBoundingClientRect(), pad = 8;
     ring.style.display = 'block';
     ring.style.left = (r.left - pad) + 'px'; ring.style.top = (r.top - pad) + 'px';
@@ -7851,33 +7901,45 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home{display:none!important}
     if (r.height > vh * .55) y = window.pageYOffset + r.top - vh * .1;
     window.scrollTo({top: Math.max(0, y), behavior: 'smooth'});
   }
-  function go(i){
-    cur = i;
-    if (i >= STEPS.length) return finish();
+  /* 跳到任意一步前，先把页面恢复到这一步能操作的状态 */
+  function prep(i){
+    var waited = 0;
+    var close = q('#atuan-close');
+    if (i !== 5 && close && !close.hidden) { close.click(); waited = 1300; }
+    var cc = q('#compare-close');
+    if (vis(cc)) { cc.click(); waited = Math.max(waited, 450); }
+    return waited;
+  }
+  function go(i, dir){
+    dir = dir || 1;
+    if (i < 0) i = 0;
+    if (i >= N) return finish();
+    var my = ++seq;
+    cur = i; phase = 'do'; target = null; mini = false;
+    ring.className = 'do';
     var s = STEPS[i];
+    var wait = prep(i);
     try { if (s.before) s.before(); } catch (e) {}
+    render();
     setTimeout(function(){
+      if (my !== seq) return;
       var el = q(s.sel);
-      if (!vis(el)) return go(i + 1);
-      target = el; phase = 'do';
-      ring.className = 'do';
+      if (!vis(el)) { if (i + dir >= 0 && i + dir < N) return go(i + dir, dir); return finish(); }
+      target = el;
       scrollToEl(el, touch ? .32 : .4);
-      setCard('<div class="k">跟我一步步玩 · 第 ' + (i + 1) + ' / ' + STEPS.length + ' 步<span class="dots">' + dotsHTML() + '</span></div>' +
-        '<h4>' + s.t + '</h4><p>' + s.tip + '</p>' +
-        '<div class="acts"><button class="lnk" data-a="end">退出引导</button><button class="sec" data-a="skip" style="margin-left:auto">跳过这步</button></div>');
-    }, s.delay || (s.before ? 450 : 60));
+    }, Math.max(wait, s.before ? 450 : 60));
   }
   function seeEffect(){
-    var s = STEPS[cur];
+    var s = STEPS[cur], my = seq;
+    visited[cur] = true;
     phase = 'see';
     ring.className = 'see';
+    if (s.play) mini = true;          /* 游戏步骤：自动收成小胶囊，不挡摇杆 */
     setTimeout(function(){
+      if (my !== seq) return;
       var eff = q(s.eff);
-      if (vis(eff)) { target = eff; scrollToEl(eff, touch ? .38 : .45); }
-      var last = cur === STEPS.length - 1;
-      setCard('<div class="k">第 ' + (cur + 1) + ' / ' + STEPS.length + ' 步<span class="dots">' + dotsHTML() + '</span></div>' +
-        '<h4><span class="ok">✓ 做到了！</span></h4><p>' + s.ok + '</p>' +
-        '<div class="acts"><button class="lnk" data-a="end">退出引导</button><button class="pri" data-a="next">' + (last ? '完成 🎉' : '下一步 →') + '</button></div>');
+      if (vis(eff)) { target = eff; if (!s.play) scrollToEl(eff, touch ? .38 : .45); }
+      render();
     }, s.wait || 400);
   }
   function onClick(e){
@@ -7886,35 +7948,47 @@ html.ipc-on .atuan-guide-launcher,html.ipc-on #ip-home{display:none!important}
     if (target === e.target || target.contains(e.target)) seeEffect();
   }
   card.addEventListener('click', function(e){
-    var b = e.target.closest('button'); if (!b) return;
+    var b = e.target.closest('button'); if (!b || b.disabled) return;
     var a = b.getAttribute('data-a');
-    if (a === 'next' || a === 'skip') go(cur + 1);
+    if (a === 'next') { if (phase === 'see') visited[cur] = true; go(cur + 1, 1); }
+    else if (a === 'prev') go(cur - 1, -1);
+    else if (a === 'jump') { var j = +b.getAttribute('data-i'); go(j, j < cur ? -1 : 1); }
+    else if (a === 'min') { mini = true; render(); }
+    else if (a === 'max') { mini = false; render(); }
     else if (a === 'end') stop();
   });
   function finish(){
     stop();
     host();
-    try { sessionStorage.setItem('ip-coach-done', '1'); } catch (e) {}
-    setCard('<h4>🎉 引导完成</h4><p>图片、场景、视频和小游戏你都试过了，接下来随便玩吧。想再看一遍，点右上角「跟我一步步玩」。</p><div class="acts"><button class="pri" data-a="close">好的</button></div>');
+    card.classList.remove('mini', 'top');
+    card.innerHTML = '<h4>🎉 引导完成</h4><p>图片、场景、视频和小游戏你都试过了，接下来随便玩吧。想再看一遍，点右上角「跟我一步步玩」。</p><div class="acts"><button type="button" class="pri" data-a="close">好的</button></div>';
+    card.style.display = 'block';
     card.querySelector('[data-a="close"]').onclick = function(){ card.style.display = 'none'; };
   }
   function stop(){
     document.documentElement.classList.remove('ipc-on');
-    active = false; phase = ''; target = null;
+    active = false; phase = ''; target = null; seq++;
     cancelAnimationFrame(raf); raf = 0;
     ring.style.display = hand.style.display = dot.style.display = card.style.display = 'none';
     try { sessionStorage.setItem('ip-coach-done', '1'); } catch (e) {}
   }
   function start(){
     if (window.AtuanGuide) { var b = q('.atuan-tour-open'); if (b && b.textContent.indexOf('停止') >= 0) b.click(); }
-    active = true;
+    active = true; visited = {};
     document.documentElement.classList.add('ipc-on');
     cancelAnimationFrame(raf); raf = requestAnimationFrame(place);
     go(0);
   }
-  window.IPCoach = {start:start, stop:stop};
+  window.IPCoach = {start:start, stop:stop, go:function(i){ go(i); }};
+  (function watchStage(){
+    var st = q('#atuan-stage');
+    if (!st) return setTimeout(watchStage, 500);
+    function sync(){ document.documentElement.classList.toggle('ip-stage-open', st.getAttribute('data-expanded') === 'true'); }
+    sync();
+    if (window.MutationObserver) new MutationObserver(sync).observe(st, {attributes:true, attributeFilter:['data-expanded']});
+  })();
   document.addEventListener('click', onClick, true);
-  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && active) stop(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && active && !mini) { mini = true; render(); } });
 
   /* 原「鼠标引导演示」按钮改为启动互动引导 */
   function hookLauncher(){
