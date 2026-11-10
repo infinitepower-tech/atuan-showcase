@@ -1309,7 +1309,7 @@ function frameTour(){
 }
 function loadAtuan(){
   if(atuanLoaded){ frameTour(); return; }
-  let url = ATUAN_URL;
+  let url = ATUAN_URL, offHtml = null;
   if(!url){
     const src = $("atuanSrc");
     if(!src && document.readyState === "loading"){
@@ -1319,6 +1319,7 @@ function loadAtuan(){
     }
     if(!src){ $("whatBox").innerHTML = '<div class="what-ph">（预览版未内嵌阿团互动展示，请打开完整版文件）</div>'; return; }
     const html = src.textContent.split("</scr⁣ipt").join("</script").split("<⁣!--").join("<!--");
+    offHtml = html;
     url = URL.createObjectURL(new Blob([html], {type:"text/html;charset=utf-8"}));
   }
   $("whatBox").innerHTML = '<div class="what-loading" id="whatLoading"><div class="wl-card"><span class="wl-panda" aria-hidden="true"></span><b>正在打开小熊猫阿团</b><span class="wl-bar"><i></i></span><span class="wl-pct" id="wlPct"></span><p class="wl-note">首次打开要加载图片、视频和小游戏，<br>会比较慢，请耐心等待</p><p class="wl-slow" id="wlSlow"></p></div></div><iframe id="atuanFrame" title="AI 能做什么 · 阿团互动展示" allow="autoplay; fullscreen" allowfullscreen></iframe>';
@@ -1354,6 +1355,9 @@ function loadAtuan(){
     }).then(html => {
       handoff(() => putWrite(html), putSrc);
     }, () => { handoff(putSrc, giveUp); });
+  } else if(offHtml){
+    /* 离线版：直接写入（微信等内置浏览器可能不让打开 blob 地址），不行再用 blob */
+    handoff(() => putWrite(offHtml), putSrc);
   } else {
     $("atuanFrame").src = url;
   }
